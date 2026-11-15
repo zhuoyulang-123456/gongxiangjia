@@ -94,9 +94,9 @@ Windows / macOS / 安卓 / 平板 / 网页，同一个局域网内互联。文�
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
-| Android | `共享夹-Android.apk` | 直接安装（需允许"安装未知来源应用"） |
-| Windows | `共享夹-Windows-x64.zip` | 解压后运行 `共享夹.exe` |
-| macOS | `共享夹-macOS.zip` | 解压后拖进「应用程序」；首次打开右键 → 打开 |
+| Android | `GongXiangJia-Android.apk` | 直接安装（需允许"安装未知来源应用"） |
+| Windows | `GongXiangJia-Windows-x64.zip` | 解压后运行 `共享夹.exe` |
+| macOS | `GongXiangJia-macOS.zip` | 解压后拖进「应用程序」；首次打开右键 → 打开 |
 
 > macOS 首次运行会请求「访问文稿文件夹」和「显示在其他应用上层」，用于扫描共享夹和悬浮球。
 
