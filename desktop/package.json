@@ -1,0 +1,19 @@
+{
+  "name": "gongxiangjia-desktop",
+  "version": "0.6.28",
+  "description": "共享夹 - 点对点文件同步（加密 / 断点续传 / 增量同步 / 版本 / 回收站）",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node p2p-test.js"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "@electron/universal": "^3.0.6",
+    "electron": "^33.0.0"
+  }
+}

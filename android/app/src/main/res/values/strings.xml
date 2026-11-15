@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_send_file">发送文件到电脑</string>
+    <string name="shortcut_send_clip">发送剪贴板</string>
+    <string name="shortcut_send_file_long">选文件，直接发到电脑</string>
+    <string name="shortcut_send_clip_long">把剪贴板里的文字发到电脑</string>
+</resources>

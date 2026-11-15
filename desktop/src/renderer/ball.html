@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>共享夹悬浮球</title>
+  <link rel="stylesheet" href="ball.css" />
+</head>
+<body data-mode="idle" data-edge="right">
+  <div class="stage">
+    <div class="hitpad"></div>
+    <div class="ball" id="ball">
+      <div class="halo"></div>
+      <div class="waves"><span></span><span></span></div>
+      <div class="ring" id="ring"></div>
+      <div class="core" id="core">
+        <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.5l2 2.5H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span class="pct" id="pct"></span>
+        <div class="burst" id="burst"></div>
+      </div>
+      <div class="grip" id="grip" title="按住可以拖动悬浮球">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7" r="1.6"/><circle cx="15" cy="7" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="17" r="1.6"/><circle cx="15" cy="17" r="1.6"/></svg>
+      </div>
+    </div>
+
+    <div class="speed" id="speed"></div>
+
+    <div class="sheet" id="sheet">
+      <div class="sheet-grip" title="拖动移动悬浮球"></div>
+      <div class="sheet-icon" id="sheet-icon" draggable="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+      </div>
+      <div class="sheet-main" id="sheet-main" draggable="true">
+        <div class="sheet-name" id="sheet-name">文件</div>
+        <div class="sheet-hint">按住拖到桌面任意位置</div>
+      </div>
+      <button class="sheet-close" id="sheet-close" title="收起">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="drop-tip" id="drop-tip">松开，传进共享夹</div>
+    <div class="ball-toast" id="ball-toast">已发送</div>
+  </div>
+  <script src="ball.js"></script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+/* 共享夹 · 悬浮球（特效版） */
+
+:root {
+  --primary: #2563EB;
+  --primary-2: #3B82F6;
+  --accent: #F97316;
+  --ink: #0F172A;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hitpad {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Windows：隐藏时铺一层 1% 白，肉眼看不见，但系统会把它当成可投放的实体 */
+body[data-win="1"][data-visible="0"] .hitpad {
+  background: rgba(255, 255, 255, 0.01);
+  pointer-events: auto;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---------------- 球体 ---------------- */
+.ball {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  --s: 0.5;
+  --tx: -50%;
+  --ty: -50%;
+  transform: translate(var(--tx), var(--ty)) scale(var(--s));
+  opacity: 0;
+  transition: transform 420ms cubic-bezier(0.16, 0.9, 0.24, 1.12), opacity 220ms ease;
+}
+body[data-visible="1"] .ball { --s: 1; opacity: 1; }
+body[data-mode="received"] .ball { --s: 0.3; opacity: 0; pointer-events: none; }
+
+/* 空闲时真正的"半圆贴边"：球心落在屏幕边缘，外半边被窗口裁掉 */
+body[data-mode="idle"][data-edge="right"] .ball { left: auto; right: -48px; top: 50%; --tx: 0; --ty: -50%; }
+body[data-mode="idle"][data-edge="left"] .ball { left: -48px; right: auto; top: 50%; --tx: 0; --ty: -50%; }
+body[data-mode="idle"][data-edge="top"] .ball { left: 50%; top: -48px; --tx: -50%; --ty: 0; }
+body[data-mode="idle"][data-edge="bottom"] .ball { left: 50%; top: auto; bottom: -48px; --tx: -50%; --ty: 0; }
+
+/* 光晕 */
+.halo {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), rgba(59, 130, 246, 0) 66%);
+  filter: blur(7px);
+  z-index: 0;
+  opacity: 0.8;
+  animation: halo 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes halo {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+body[data-drag="1"] .halo { animation: haloFast 1s ease-in-out infinite; filter: blur(10px); }
+@keyframes haloFast {
+  0%, 100% { transform: scale(1.05); opacity: 0.95; }
+  50% { transform: scale(1.22); opacity: 1; }
+}
+
+/* 波纹（拖入时一圈圈扩散） */
+.waves { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 180ms ease; z-index: 1; }
+body[data-drag="1"] .waves { opacity: 1; }
+.waves span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(96, 165, 250, 0.75);
+  animation: wave 1.5s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.waves span:nth-child(2) { animation-delay: 0.75s; }
+@keyframes wave {
+  0% { transform: scale(0.72); opacity: 0.85; }
+  100% { transform: scale(1.95); opacity: 0; }
+}
+
+/* 进度环 */
+.ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  z-index: 2;
+  background: conic-gradient(from -90deg, #60A5FA calc(var(--p, 0) * 1%), rgba(255, 255, 255, 0.25) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+body[data-mode="active"] .ring { opacity: 1; }
+
+/* 球芯：整块都是拖放区 */
+.core {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: linear-gradient(160deg, #FFFFFF 0%, #E9F1FF 100%);
+  box-shadow:
+    0 12px 28px -10px rgba(16, 24, 40, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1.2), box-shadow 180ms ease;
+  -webkit-app-region: no-drag;
+}
+.core:hover { transform: scale(1.05); }
+.core:active { transform: scale(0.97); }
+
+.glyph { width: 32px; height: 32px; transition: opacity 180ms ease, transform 180ms ease; }
+body[data-mode="active"] .glyph { opacity: 0; transform: scale(0.75); }
+
+.pct {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+body[data-mode="active"] .pct { opacity: 1; transform: none; }
+
+/* 拖入时球芯的高亮 */
+body[data-drag="1"] .core {
+  transform: scale(1.12);
+  box-shadow:
+    0 0 0 6px rgba(37, 99, 235, 0.16),
+    0 16px 36px -10px rgba(37, 99, 235, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+body[data-drag="1"] .glyph { transform: scale(1.08); }
+
+/* 吞下文件的动画 */
+body[data-swallow="1"] .core { animation: swallow 620ms cubic-bezier(0.3, 0.9, 0.25, 1); }
+@keyframes swallow {
+  0% { transform: scale(1); }
+  28% { transform: scale(1.24); }
+  52% { transform: scale(0.78); }
+  76% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* 粒子与冲击波 */
+.burst { position: absolute; inset: 0; pointer-events: none; }
+.particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #DBEAFE, #3B82F6);
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.95);
+  pointer-events: none;
+  animation: particle 780ms cubic-bezier(0.16, 0.8, 0.3, 1) forwards;
+}
+@keyframes particle {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  65% { opacity: 0.9; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.15); opacity: 0; }
+}
+.shock {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(147, 197, 253, 0.95);
+  pointer-events: none;
+  animation: shock 640ms ease-out forwards;
+}
+@keyframes shock {
+  0% { transform: scale(0.6); opacity: 0.95; }
+  100% { transform: scale(2.15); opacity: 0; }
+}
+
+/* 拖动窗口的小把手（只在悬停时出现，不挡拖放） */
+.grip {
+  position: absolute;
+  z-index: 6;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(37, 99, 235, 0.55);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.18);
+  -webkit-app-region: drag;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  cursor: grab;
+}
+.grip svg { width: 12px; height: 12px; }
+.ball:hover .grip { opacity: 1; }
+body[data-edge="right"] .grip { left: 5px; top: 50%; transform: translateY(-50%); }
+body[data-edge="left"] .grip { right: 5px; top: 50%; transform: translateY(-50%); }
+body[data-edge="top"] .grip { bottom: 5px; left: 50%; transform: translateX(-50%); }
+body[data-edge="bottom"] .grip { top: 5px; left: 50%; transform: translateX(-50%); }
+
+/* 速度胶囊 */
+.speed {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 58px) translateY(4px);
+  white-space: nowrap;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+  z-index: 7;
+}
+body[data-mode="active"] .speed { opacity: 1; transform: translate(-50%, 58px); }
+
+/* ---------------- 收到文件的扇形卡片 ---------------- */
+.sheet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 264px;
+  height: 96px;
+  border-radius: 48px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 12px 0 10px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 48px -16px rgba(16, 24, 40, 0.5), inset 0 0 0 1px rgba(37, 99, 235, 0.1);
+  transform: translate(-50%, -50%) scale(0.86);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 340ms cubic-bezier(0.16, 0.9, 0.24, 1.12), opacity 220ms ease;
+  z-index: 5;
+  -webkit-app-region: no-drag;
+}
+body[data-mode="received"] .sheet { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+
+.sheet-grip {
+  width: 7px;
+  height: 46px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.10);
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+.sheet-grip:hover { background: rgba(15, 23, 42, 0.2); }
+
+.sheet-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: linear-gradient(160deg, #EEF4FF, #DFEAFF);
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  cursor: grab;
+  box-shadow: inset 0 1px 0 #fff, 0 4px 10px -6px rgba(37, 99, 235, 0.6);
+  transition: transform 160ms ease;
+}
+.sheet-icon:hover { transform: scale(1.06); }
+.sheet-icon svg { width: 23px; height: 23px; }
+
+.sheet-main { flex: 1; min-width: 0; -webkit-app-region: no-drag; cursor: grab; }
+.sheet-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-hint { font-size: 10.5px; color: #64748B; margin-top: 2px; }
+
+.sheet-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: #F1F5F9;
+  color: #64748B;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+.sheet-close:hover { background: #E2E8F0; color: #0F172A; }
+.sheet-close:active { transform: scale(0.9); }
+.sheet-close svg { width: 13px; height: 13px; }
+
+/* ---------------- 拖入提示 ---------------- */
+.drop-tip {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%) translateY(8px);
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #3B82F6, #2563EB);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  box-shadow: 0 10px 26px -10px rgba(37, 99, 235, 0.9);
+  z-index: 8;
+}
+body[data-drag="1"] .drop-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+
+/* 发送成功提示 */
+.ball-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%) translateY(8px);
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: rgba(21, 128, 61, 0.95);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  box-shadow: 0 10px 26px -10px rgba(21, 128, 61, 0.9);
+  z-index: 9;
+}
+.ball-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

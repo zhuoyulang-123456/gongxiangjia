@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="send-file"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_send_file"
+        android:shortcutLongLabel="@string/shortcut_send_file_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.gongxiangjia.app"
+            android:targetClass="com.gongxiangjia.app.MainActivity">
+            <extra android:name="gxj_action" android:value="send-file" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="send-clip"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_send_clip"
+        android:shortcutLongLabel="@string/shortcut_send_clip_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.gongxiangjia.app"
+            android:targetClass="com.gongxiangjia.app.MainActivity">
+            <extra android:name="gxj_action" android:value="send-clip" />
+        </intent>
+    </shortcut>
+
+    <share-target android:targetClass="com.gongxiangjia.app.MainActivity">
+        <data android:mimeType="text/plain" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="application/*" />
+        <data android:mimeType="*/*" />
+        <category android:name="com.gongxiangjia.app.SHARE" />
+    </share-target>
+</shortcuts>
