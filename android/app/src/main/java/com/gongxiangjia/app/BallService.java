@@ -28,7 +28,9 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -442,7 +444,20 @@ public class BallService extends Service {
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
             out.flush(); out.close(); in.close();
-            return conn.getResponseCode() == 200;
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                try {
+                    BufferedReader br2 = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br2.readLine()) != null) sb.append(line);
+                    br2.close();
+                    org.json.JSONObject o = new org.json.JSONObject(sb.toString());
+                    String saved = o.optString("name");
+                    if (!saved.isEmpty()) sp.edit().putString("seen_file", saved).apply();
+                } catch (Exception ignored) {}
+            }
+            return code == 200;
         } catch (Exception e) {
             Log.d("GXJ", "drop upload err " + e);
             return false;
@@ -610,6 +625,7 @@ public class BallService extends Service {
     }
 
     private void hidePanel() {
+        hideTextInput();
         if (!panelShown || panelRoot == null) return;
         try { wm.removeView(panelRoot); } catch (Exception ignored) {}
         panelShown = false;
@@ -626,6 +642,9 @@ public class BallService extends Service {
         card.setPadding(dp(8), dp(6), dp(8), dp(6));
         card.setElevation(dp(12));
 
+        card.addView(panelRow("发送文件", v -> { hidePanel(); launchWith("send-file"); }));
+        card.addView(panelRow("发送图片", v -> { hidePanel(); launchWith("send-photo"); }));
+        card.addView(panelRow("发送文字…", v -> { hidePanel(); showTextInput(); }));
         card.addView(panelRow("发送最近的文件", v -> { hidePanel(); sendLatestAnything(); }));
         card.addView(panelRow("发送剪贴板", v -> { hidePanel(); sendClipboardDirect(); }));
         card.addView(panelRow("打开共享夹", v -> { hidePanel(); openApp(); }));
@@ -808,11 +827,120 @@ public class BallService extends Service {
         }
     }
 
+    private View textPanel;
+    private boolean textPanelShown = false;
+
+    private void showTextInput() {
+        try {
+            if (textPanelShown) { hideTextInput(); return; }
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.parseColor("#FFFFFF"));
+            bg.setCornerRadius(dp(20));
+            bg.setStroke(dp(1), Color.parseColor("#1A0F172A"));
+            box.setBackground(bg);
+            box.setPadding(dp(16), dp(14), dp(16), dp(12));
+            box.setElevation(dp(14));
+
+            TextView title = new TextView(this);
+            title.setText("发送文字到电脑");
+            title.setTextSize(14f);
+            title.setTextColor(Color.parseColor("#0F172A"));
+            box.addView(title);
+
+            final EditText input = new EditText(this);
+            input.setHint("输入或粘贴文字…");
+            input.setTextSize(14f);
+            input.setMinLines(3);
+            input.setGravity(Gravity.TOP);
+            input.setBackgroundColor(Color.parseColor("#F5F7FB"));
+            input.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            ilp.topMargin = dp(10);
+            box.addView(input, ilp);
+
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.END);
+
+            TextView cancel = new TextView(this);
+            cancel.setText("取消");
+            cancel.setTextSize(13.5f);
+            cancel.setTextColor(Color.parseColor("#64748B"));
+            cancel.setPadding(dp(14), dp(10), dp(14), dp(10));
+            cancel.setOnClickListener(v -> hideTextInput());
+
+            TextView send = new TextView(this);
+            send.setText("发送");
+            send.setTextSize(13.5f);
+            send.setTextColor(Color.WHITE);
+            send.setPadding(dp(20), dp(10), dp(20), dp(10));
+            GradientDrawable sbg = new GradientDrawable();
+            sbg.setColor(Color.parseColor("#2563EB"));
+            sbg.setCornerRadius(dp(12));
+            send.setBackground(sbg);
+            send.setOnClickListener(v -> {
+                String t = input.getText() == null ? "" : input.getText().toString();
+                if (t.trim().isEmpty()) { toast("先写点什么"); return; }
+                hideTextInput();
+                toast("正在发送文字…");
+                final String body = t;
+                new Thread(() -> {
+                    boolean ok = postTextToPc(body);
+                    toast(ok ? "已发送文字到电脑" : "发送失败");
+                }).start();
+            });
+
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rlp.topMargin = dp(8);
+            row.addView(cancel);
+            row.addView(send);
+            box.addView(row, rlp);
+
+            WindowManager.LayoutParams plp = new WindowManager.LayoutParams(
+                    Math.min(getResources().getDisplayMetrics().widthPixels - dp(40), dp(330)),
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    Build.VERSION.SDK_INT >= 26
+                            ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                            : WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    PixelFormat.TRANSLUCENT);
+            plp.gravity = Gravity.CENTER;
+            plp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    | WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE;
+            wm.addView(box, plp);
+            textPanel = box;
+            textPanelShown = true;
+            input.requestFocus();
+            input.postDelayed(() -> {
+                try {
+                    android.view.inputmethod.InputMethodManager imm =
+                            (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                } catch (Exception ignored) {}
+            }, 350);
+        } catch (Exception e) {
+            Log.d("GXJ", "text panel err " + e);
+            launchWith("send-clip");
+        }
+    }
+
+    private void hideTextInput() {
+        if (!textPanelShown || textPanel == null) return;
+        try { wm.removeView(textPanel); } catch (Exception ignored) {}
+        textPanelShown = false;
+        textPanel = null;
+    }
+
     private void launchWith(String action) {
         try {
             Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             i.putExtra("gxj_action", action);
+            i.putExtra("from_ball", true);
             startActivity(i);
         } catch (Exception e) { toast("打不开，请手动打开共享夹"); }
     }

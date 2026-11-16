@@ -8,26 +8,23 @@ android {
         applicationId "com.gongxiangjia.app"
         minSdk 24
         targetSdk 34
-        versionCode 642
-        versionName "0.6.42"
+        versionCode 644
+        versionName "0.6.44"
     }
 
-    // 用自己的密钥签名：把 gxj.keystore 放到 android/ 目录，或在 gradle.properties 里配置
     signingConfigs {
         release {
-            if (file("../gxj.keystore").exists()) {
-                storeFile file("../gxj.keystore")
-                storePassword project.findProperty("GXJ_STORE_PASSWORD") ?: ""
-                keyAlias project.findProperty("GXJ_KEY_ALIAS") ?: "gxj"
-                keyPassword project.findProperty("GXJ_KEY_PASSWORD") ?: ""
-            }
+            storeFile file("../gxj.keystore")
+            storePassword project.findProperty("GXJ_STORE_PASSWORD") ?: ""
+            keyAlias project.findProperty("GXJ_KEY_ALIAS") ?: "gxj"
+            keyPassword project.findProperty("GXJ_KEY_PASSWORD") ?: ""
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            if (file("../gxj.keystore").exists()) signingConfig signingConfigs.release
+            signingConfig signingConfigs.release
         }
     }
 

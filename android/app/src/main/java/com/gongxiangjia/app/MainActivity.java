@@ -88,6 +88,7 @@ public class MainActivity extends Activity {
 
         Intent it = getIntent();
         String shortcut = it != null ? it.getStringExtra("gxj_action") : null;
+        fromBall = it != null && it.getBooleanExtra("from_ball", false);
         String incoming = it != null ? it.getStringExtra("url") : null;
         String saved = !TextUtils.isEmpty(incoming) ? incoming : sp.getString(KEY_URL, "");
 
@@ -124,6 +125,7 @@ public class MainActivity extends Activity {
     }
 
     private Discovery.Peer pendingPeer;
+    private boolean fromBall = false;
 
     /** 先选设备，再选文件，直接发过去 */
     private void pickPeerThenFile() {
@@ -170,7 +172,21 @@ public class MainActivity extends Activity {
             out.flush();
             out.close();
             in.close();
-            return conn.getResponseCode() == 200;
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                try {
+                    java.io.BufferedReader br = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                    br.close();
+                    org.json.JSONObject o = new org.json.JSONObject(sb.toString());
+                    String saved = o.optString("name");
+                    if (!saved.isEmpty()) sp.edit().putString("seen_file", saved).apply();
+                } catch (Exception ignored) {}
+            }
+            return code == 200;
         } catch (Exception e) {
             Log.d("GXJ", "peer upload err " + e);
             return false;
@@ -220,6 +236,7 @@ public class MainActivity extends Activity {
         setIntent(intent);
         Log.d("GXJ", "onNewIntent action=" + (intent == null ? "null" : intent.getAction()));
         String shortcut = intent.getStringExtra("gxj_action");
+        if (intent.getBooleanExtra("from_ball", false)) fromBall = true;
         String incoming = intent.getStringExtra("url");
         if (!TextUtils.isEmpty(incoming)) {
             sp.edit().putString(KEY_URL, incoming).apply();
@@ -1021,6 +1038,7 @@ public class MainActivity extends Activity {
                     picked.add(data.getData());
                 }
             }
+            if (picked.isEmpty() && fromBall) { finishAffinity(); return; }
             if (!picked.isEmpty()) {
                 toast("正在发送 " + picked.size() + " 个文件…");
                 final String base = baseUrl();
@@ -1040,9 +1058,12 @@ public class MainActivity extends Activity {
                     if (ok > 0) sp.edit().putString("sent_names", echoNames.toString())
                             .putLong("sent_at", System.currentTimeMillis()).apply();
                     final int n = ok, total = picked.size();
-                    toast(n == total ? "已发送 " + n + " 个文件" : "发送了 " + n + "/" + total);
+                    toast(n == total ? "已发送到电脑 · " + n + " 个文件" : "发送了 " + n + "/" + total);
                     pendingPeer = null;
-                    runOnUiThread(() -> { if (web != null && web.getVisibility() == View.VISIBLE) web.reload(); });
+                    runOnUiThread(() -> {
+                        if (fromBall) { finishAffinity(); return; }
+                        if (web != null && web.getVisibility() == View.VISIBLE) web.reload();
+                    });
                 }).start();
             }
             return;
