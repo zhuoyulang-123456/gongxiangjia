@@ -600,7 +600,7 @@ class PeerManager extends EventEmitter {
         if (!missing.length) continue;
         ap.at = now;
         this.wanted.add(path);
-        this._sendJSON(ws, { type: 'request', path, ranges: missing });
+        this._sendJSON(ws, { type: 'request', path, ranges: missing.slice(0, 8) });
       }
     }, 5000);
   }
@@ -897,7 +897,7 @@ class PeerManager extends EventEmitter {
         for (let i = 0; i < total; i++) if (!done.has(i)) missing.push(i);
         this.inBytes.set(rel, Math.min(remote.size, done.size * STRIPE_RANGE));
         this.activePulls.set(rel, { peerId: ws._peerId, at: Date.now() });
-        this._sendJSON(ws, { type: 'request', path: rel, ranges: missing });
+        this._sendJSON(ws, { type: 'request', path: rel, ranges: missing.slice(0, 8) });
         return;
       }
       const partial = this._partialPath(remote.hash);
@@ -1098,7 +1098,19 @@ class PeerManager extends EventEmitter {
   async _finishFile(st, ws) {
     const partial = this._partialPath(st.hash);
     try {
-      const got = await hashFile(partial, st.size >= DELTA_MIN ? BLOCK : 0);
+      // 等所有分片真正落盘：大文件多连接时，最后一片到达时其它片可能还在写
+      for (let i = 0; i < 40; i++) {
+        let sz = -1;
+        try { sz = fs.statSync(partial).size; } catch (e) {}
+        if (sz === st.size) break;
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      let got = await hashFile(partial, st.size >= DELTA_MIN ? BLOCK : 0);
+      if (got.hash !== st.hash) {
+        // 再等一会儿重算一次，排除写盘抖动
+        await new Promise((r) => setTimeout(r, 400));
+        got = await hashFile(partial, st.size >= DELTA_MIN ? BLOCK : 0);
+      }
       if (got.hash !== st.hash) {
         try { fs.unlinkSync(partial); } catch (e) {}
         this._clearParts(st.hash);
@@ -1109,7 +1121,7 @@ class PeerManager extends EventEmitter {
         if (peer) {
           if (st.size >= STRIPE_MIN) {
             const total = Math.ceil(st.size / STRIPE_RANGE);
-            this._sendJSON(ws, { type: 'request', path: st.path, ranges: [...Array(total).keys()] });
+            this._sendJSON(ws, { type: 'request', path: st.path, ranges: [...Array(total).keys()].slice(0, 8) });
           } else {
             this._sendJSON(ws, { type: 'request', path: st.path, offset: 0 });
           }
@@ -1370,6 +1382,7 @@ class PeerManager extends EventEmitter {
       ? msg.ranges.filter((i) => Number.isInteger(i) && i >= 0 && i < total)
       : [...Array(total).keys()];
     if (!list.length) list = [...Array(total).keys()];
+    list = list.slice(0, 8);
 
     list.forEach((idx, i) => {
       const conn = conns[i % conns.length];

@@ -1,6 +1,6 @@
 {
   "name": "gongxiangjia-desktop",
-  "version": "0.6.44",
+  "version": "0.6.46",
   "description": "共享夹 - 点对点文件同步（加密 / 断点续传 / 增量同步 / 版本 / 回收站）",
   "main": "src/main.js",
   "scripts": {
